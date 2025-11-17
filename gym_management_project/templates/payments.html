@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Payments - Gym Management{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-credit-card"></i> Payment Management</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+            <i class="fas fa-plus"></i> Add New Payment
+        </button>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">All Payments</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Member</th>
+                            <th>Amount</th>
+                            <th>Date</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in payments %}
+                        <tr>
+                            <td>{{ p.PaymentID }}</td>
+                            <td>{{ p.MemberName }}</td>
+                            <td><strong>₹{{ "%.2f"|format(p.Amount) }}</strong></td>
+                            <td>{{ p.PaymentDate }}</td>
+                            <td>{{ p.PaymentMethod }}</td>
+                            <td>
+                                {% if p.Status == "Paid" %}
+                                    <span class="badge bg-success">Paid</span>
+                                {% elif p.Status == "Pending" %}
+                                    <span class="badge bg-warning text-dark">Pending</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{{ p.Status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Add Payment Modal -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" id="paymentForm">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Add Payment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <div class="mb-3">
+          <label class="form-label">Select Member *</label>
+          <select class="form-select" id="memberId" required></select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Amount (₹) *</label>
+          <input type="number" class="form-control" id="amount" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Payment Date *</label>
+          <input type="date" class="form-control" id="paymentDate" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Payment Method *</label>
+          <select class="form-select" id="paymentMethod" required>
+            <option value="Cash">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Card">Card</option>
+            <option value="Credit Card">Credit Card</option>
+            <option value="Debit Card">Debit Card</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="status">
+            <option value="Paid">Paid</option>
+            <option value="Pending">Pending</option>
+          </select>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary">Add Payment</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+
+<script>
+// Load member list when modal is opened
+document.getElementById("addPaymentModal")
+  .addEventListener("show.bs.modal", () => {
+    fetch("/api/members")
+      .then(r => r.json())
+      .then(members => {
+        const sel = document.getElementById("memberId");
+        sel.innerHTML = "";
+        members.forEach(m => {
+          sel.innerHTML += `<option value="${m.MemberID}">${m.Name}</option>`;
+        });
+      });
+  });
+
+// Submit payment
+document.getElementById("paymentForm").addEventListener("submit", e => {
+  e.preventDefault();
+
+  const data = {
+    MemberID: document.getElementById("memberId").value,
+    Amount: document.getElementById("amount").value,
+    PaymentDate: document.getElementById("paymentDate").value,
+    PaymentMethod: document.getElementById("paymentMethod").value,
+    Status: document.getElementById("status").value
+  };
+
+  fetch("/api/payments", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(data)
+  })
+  .then(r => r.json())
+  .then(resp => {
+    if (resp.success) {
+      showToast("Payment added!");
+      location.reload();
+    } else {
+      showToast("Error adding payment");
+    }
+  });
+});
+</script>
+
+{% endblock %}

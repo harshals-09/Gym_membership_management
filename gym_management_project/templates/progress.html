@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% block title %}Progress Tracking - Gym Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1><i class="fas fa-chart-line"></i> Member Progress</h1>
+        <div>
+            <button class="btn btn-primary me-2" id="refreshProgressBtn">Refresh</button>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addProgressModal">
+                <i class="fas fa-plus"></i> Add Progress
+            </button>
+        </div>
+    </div>
+
+    <!-- ===================== TABLE ===================== -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">All Progress Records</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="progressTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Member</th>
+                            <th>Date</th>
+                            <th>Weight (kg)</th>
+                            <th>Body Fat (%)</th>
+                            <th>BMI</th>
+                            <th>Muscle Mass</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in progress %}
+                        <tr data-id="{{ p.ProgressID }}">
+                            <td>{{ p.ProgressID }}</td>
+                            <td>{{ p.MemberName }}</td>
+                            <td>{{ p.Date }}</td>
+                            <td>{{ p.Weight }}</td>
+                            <td>{{ p.BodyFat or '-' }}</td>
+                            <td>{{ p.BMI or '-' }}</td>
+                            <td>{{ p.MuscleMass or '-' }}</td>
+                            <td>{{ p.Notes or '' }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary editProgressBtn">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger deleteProgressBtn">Delete</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== CHARTS ===================== -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div><i class="fas fa-user"></i> Select Member</div>
+                    <select id="chartMemberSelect" class="form-select form-select-sm">
+                        <option value="">-- Choose member --</option>
+                        {% for m in members %}
+                            <option value="{{ m.MemberID }}">{{ m.Name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="card-body">
+                    <small class="text-muted">Choose a member to see their weight & body-fat charts.</small>
+                    <div class="mt-3">
+                        <button class="btn btn-sm btn-outline-secondary me-1" id="toggleCompareBtn">
+                            Compare (overlay)
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" id="clearChartsBtn">
+                            Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WEIGHT CHART -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">Weight Over Time</div>
+                <div class="card-body">
+                    <canvas id="weightChart" height="160"></canvas>
+                </div>
+            </div>
+
+            <!-- BODYFAT CHART -->
+            <div class="card">
+                <div class="card-header">Body Fat Over Time</div>
+                <div class="card-body">
+                    <canvas id="bodyfatChart" height="160"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== ADD/EDIT MODAL ===================== -->
+<div class="modal fade" id="addProgressModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" id="progressForm">
+      <div class="modal-header">
+        <h5 class="modal-title" id="progressModalTitle">Add Progress</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="progressId">
+
+        <div class="mb-3">
+          <label class="form-label">Member</label>
+          <select class="form-select" id="progressMember" required>
+              <option value="">-- Select member --</option>
+              {% for m in members %}
+              <option value="{{ m.MemberID }}">{{ m.Name }}</option>
+              {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Date</label>
+          <input type="date" class="form-control" id="progressDate" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Weight (kg)</label>
+          <input type="number" step="0.1" class="form-control" id="progressWeight" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Body Fat (%)</label>
+          <input type="number" step="0.1" class="form-control" id="progressBodyFat">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">BMI</label>
+          <input type="number" step="0.1" class="form-control" id="progressBMI">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Muscle Mass</label>
+          <input type="text" class="form-control" id="progressMuscle">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Notes</label>
+          <textarea class="form-control" id="progressNotes"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-success" id="saveProgressBtn">Save</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let comparing = false;
+let weightChart = null;
+let bodyfatChart = null;
+
+function showToast(msg) {
+    const t = document.createElement("div");
+    t.className = "toast text-bg-primary position-fixed bottom-0 end-0 m-3 show";
+    t.innerHTML = `<div class="d-flex"><div class="toast-body">${msg}</div>
+                   <button class="btn-close btn-close-white me-2 m-auto"></button></div>`;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+
+function createChart(id, labels, datasets) {
+    const ctx = document.getElementById(id).getContext("2d");
+    return new Chart(ctx, {
+        type: "line",
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: "bottom" }},
+            scales: { y: { beginAtZero: true }}
+        }
+    });
+}
+
+async function fetchTimeseries(memberId) {
+    const res = await fetch(`/api/analytics/progress/${memberId}`);
+    return await res.json();
+}
+
+async function loadCharts(memberId) {
+    const data = await fetchTimeseries(memberId);
+
+    const labels = data.map(r => r.date);
+    const weight = data.map(r => r.weight);
+    const bodyfat = data.map(r => r.bodyfat);
+
+    if (!comparing) {
+        if (weightChart) weightChart.destroy();
+        if (bodyfatChart) bodyfatChart.destroy();
+    }
+
+    // Weight
+    const wDataset = {
+        label: `Weight (${memberId})`,
+        data: weight,
+        borderColor: "#3498db",
+        tension: 0.3
+    };
+
+    if (!weightChart) {
+        weightChart = createChart("weightChart", labels, [wDataset]);
+    } else {
+        weightChart.data.datasets.push(wDataset);
+        weightChart.update();
+    }
+
+    // Body Fat
+    const bfDataset = {
+        label: `Body Fat (${memberId})`,
+        data: bodyfat,
+        borderColor: "#e67e22",
+        tension: 0.3
+    };
+
+    if (!bodyfatChart) {
+        bodyfatChart = createChart("bodyfatChart", labels, [bfDataset]);
+    } else {
+        bodyfatChart.data.datasets.push(bfDataset);
+        bodyfatChart.update();
+    }
+}
+
+document.getElementById("chartMemberSelect").addEventListener("change", e => {
+    if (!e.target.value) return;
+    loadCharts(e.target.value);
+});
+
+document.getElementById("toggleCompareBtn").addEventListener("click", () => {
+    comparing = !comparing;
+    showToast(comparing ? "Compare mode ON" : "Compare mode OFF");
+});
+
+document.getElementById("clearChartsBtn").addEventListener("click", () => {
+    if (weightChart) weightChart.destroy();
+    if (bodyfatChart) bodyfatChart.destroy();
+    weightChart = null;
+    bodyfatChart = null;
+    comparing = false;
+    document.getElementById("chartMemberSelect").value = "";
+});
+
+document.getElementById("refreshProgressBtn").addEventListener("click", () => location.reload());
+
+// ===================== EDIT / DELETE =====================
+
+function getMemberIdByName(name) {
+    const opts = [...document.getElementById("progressMember").options];
+    const op = opts.find(o => o.text === name);
+    return op ? op.value : "";
+}
+
+document.querySelectorAll(".editProgressBtn").forEach(btn => {
+    btn.onclick = e => {
+        const row = e.target.closest("tr");
+        const cols = row.querySelectorAll("td");
+
+        document.getElementById("progressId").value = row.dataset.id;
+        document.getElementById("progressMember").value = getMemberIdByName(cols[1].innerText.trim());
+        document.getElementById("progressDate").value = cols[2].innerText.trim();
+        document.getElementById("progressWeight").value = cols[3].innerText.trim();
+        document.getElementById("progressBodyFat").value = cols[4].innerText.trim() !== "-" ? cols[4].innerText.trim() : "";
+        document.getElementById("progressBMI").value = cols[5].innerText.trim() !== "-" ? cols[5].innerText.trim() : "";
+        document.getElementById("progressMuscle").value = cols[6].innerText.trim() !== "-" ? cols[6].innerText.trim() : "";
+        document.getElementById("progressNotes").value = cols[7].innerText.trim();
+
+        document.getElementById("progressModalTitle").innerText = "Edit Progress";
+        new bootstrap.Modal(document.getElementById("addProgressModal")).show();
+    };
+});
+
+document.querySelectorAll(".deleteProgressBtn").forEach(btn => {
+    btn.onclick = async e => {
+        const row = e.target.closest("tr");
+        const id = row.dataset.id;
+        if (!confirm("Delete this record?")) return;
+
+        await fetch(`/api/progress/${id}`, { method: "DELETE" });
+        showToast("Deleted");
+        row.remove();
+    };
+});
+
+document.getElementById("progressForm").addEventListener("submit", async e => {
+    e.preventDefault();
+
+    const id = document.getElementById("progressId").value;
+
+    const payload = {
+        MemberID: document.getElementById("progressMember").value,
+        Date: document.getElementById("progressDate").value,
+        Weight: document.getElementById("progressWeight").value,
+        BodyFat: document.getElementById("progressBodyFat").value,
+        BMI: document.getElementById("progressBMI").value,
+        MuscleMass: document.getElementById("progressMuscle").value,
+        Notes: document.getElementById("progressNotes").value
+    };
+
+    const url = id ? `/api/progress/${id}` : "/api/progress";
+    const method = id ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+    if (result.success) {
+        showToast(id ? "Updated" : "Added");
+        location.reload();
+    } else {
+        showToast("Save failed");
+    }
+});
+</script>
+{% endblock %}

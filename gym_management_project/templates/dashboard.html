@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Gym Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4"><i class="fas fa-chart-line"></i> Dashboard</h1>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white" style="background: linear-gradient(135deg, #3498db, #2980b9);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2" style="opacity: 0.9;">Active Members</h6>
+                            <h2 class="card-title mb-0">{{ active_members|default(0) }}</h2>
+                        </div>
+                        <i class="fas fa-users fa-3x" style="opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white" style="background: linear-gradient(135deg, #2ecc71, #27ae60);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2" style="opacity: 0.9;">Total Revenue</h6>
+                            <h2 class="card-title mb-0">₹{{ "%.2f"|format(total_revenue|default(0.0)) }}</h2>
+                        </div>
+                        <i class="fas fa-dollar-sign fa-3x" style="opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2" style="opacity: 0.9;">Total Trainers</h6>
+                            <h2 class="card-title mb-0">{{ total_trainers|default(0) }}</h2>
+                        </div>
+                        <i class="fas fa-user-tie fa-3x" style="opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-white" style="background: linear-gradient(135deg, #9b59b6, #8e44ad);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2" style="opacity: 0.9;">Recent Payments</h6>
+                            <h2 class="card-title mb-0">{{ recent_payments|length }}</h2>
+                        </div>
+                        <i class="fas fa-credit-card fa-3x" style="opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Payments Table -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> Recent Payments</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Payment ID</th>
+                                    <th>Member Name</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Method</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in recent_payments %}
+                                <tr>
+                                    <td>{{ payment.PaymentID }}</td>
+                                    <td>{{ payment.MemberName }}</td>
+                                    <td>₹{{ "%.2f"|format(payment.Amount) }}</td>
+                                    <td>{{ payment.PaymentDate }}</td>
+                                    <td>{{ payment.PaymentMethod }}</td>
+                                    <td>
+                                        {% if payment.Status == 'Paid' %}
+                                            <span class="badge bg-success">{{ payment.Status }}</span>
+                                        {% elif payment.Status == 'Pending' %}
+                                            <span class="badge bg-warning text-dark">{{ payment.Status }}</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">{{ payment.Status }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Member Status Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="memberStatusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Monthly Revenue</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    /* Clean correct JSON injection */
+    const statusLabels = {{ member_status_labels | tojson }};
+    const statusCounts = {{ member_status_counts | tojson }};
+    const monthlyLabels = {{ monthly_labels | tojson }};
+    const monthlyValues = {{ monthly_values | tojson }};
+
+    // Member Status Chart
+    new Chart(document.getElementById("memberStatusChart"), {
+        type: "doughnut",
+        data: {
+            labels: statusLabels,
+            datasets: [{
+                data: statusCounts,
+                backgroundColor: ["#3498db", "#e74c3c", "#f1c40f"],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            plugins: { legend: { position: "bottom" } },
+            responsive: true
+        }
+    });
+
+    // Monthly Revenue Chart
+    new Chart(document.getElementById("revenueChart"), {
+        type: "line",
+        data: {
+            labels: monthlyLabels,
+            datasets: [{
+                label: "Revenue (₹)",
+                data: monthlyValues,
+                borderColor: "#2ecc71",
+                backgroundColor: "rgba(46,204,113,0.2)",
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            plugins: { legend: { position: "bottom" } },
+            responsive: true,
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+</script>
+{% endblock %}

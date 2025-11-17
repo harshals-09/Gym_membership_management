@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block title %}Membership Plans - Gym Management{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-list"></i> Membership Plans</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPlanModal">
+            <i class="fas fa-plus"></i> Add New Plan
+        </button>
+    </div>
+
+    <div class="row">
+        {% for plan in plans %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-dumbbell fa-3x mb-3" style="color:#3498db"></i>
+                    <h3 class="card-title">{{ plan.PlanName }}</h3>
+                    <h2 class="text-primary">₹{{ '%.2f'|format(plan.Price) }}</h2>
+                    <p class="text-muted mt-2">
+                        {% if "month" in plan.PlanName|lower %}
+                          Ideal for those who want a short-term commitment with full gym access.
+                        {% elif "year" in plan.PlanName|lower %}
+                          Best value plan for long-term fitness goals, unlimited access and support.
+                        {% elif "quarter" in plan.PlanName|lower %}
+                          Balanced plan for steady progress over 3 months.
+                        {% else %}
+                          Flexible plan for personalized fitness goals.
+                        {% endif %}
+                    </p>
+                    <hr>
+                    <button class="btn btn-outline-success btn-sm assign-plan-btn"
+                            data-plan-id="{{ plan.PlanID }}"
+                            data-plan-name="{{ plan.PlanName }}">
+                      Assign to Member
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% if not plans %}
+        <div class="col-12">
+            <div class="alert alert-info">No membership plans found. Add a new plan!</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Plan Modal -->
+<div class="modal fade" id="addPlanModal" tabindex="-1" aria-labelledby="addPlanModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="planForm">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addPlanModalLabel">Add New Membership Plan</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="planName" class="form-label">Plan Name</label>
+          <input type="text" class="form-control" id="planName" name="planName" required>
+        </div>
+        <div class="mb-3">
+          <label for="duration" class="form-label">Duration (Months)</label>
+          <input type="number" class="form-control" id="duration" name="duration" min="1" required>
+        </div>
+        <div class="mb-3">
+          <label for="price" class="form-label">Price (₹)</label>
+          <input type="number" class="form-control" id="price" name="price" min="0" step="0.01" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-primary">Add Plan</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Assign Modal -->
+<div class="modal fade" id="assignModal" tabindex="-1" aria-labelledby="assignModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="assignForm">
+      <div class="modal-header">
+        <h5 class="modal-title" id="assignModalLabel">Assign Membership Plan</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="assignPlanID" name="planId">
+        <div class="mb-3">
+          <label for="assignMember" class="form-label">Member</label>
+          <select class="form-select" id="assignMember" name="memberId" required>
+            <option value="">Loading members...</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="assignSpecialization" class="form-label">Preferred Specialization</label>
+          <select class="form-select" id="assignSpecialization" name="preferredSpecialization" required>
+            <option value="">Loading specializations...</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="assignStartDate" class="form-label">Start Date</label>
+          <input type="date" class="form-control" id="assignStartDate" name="startDate" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-success">Assign</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+/* ---------------------------
+   Helper: Toast
+   --------------------------- */
+function showToast(msg, opts = {}) {
+  const timeout = opts.timeout || 3000;
+  const toast = document.createElement('div');
+  toast.className = 'toast align-items-center text-bg-primary border-0 show position-fixed bottom-0 end-0 m-3';
+  toast.role = 'alert';
+  toast.innerHTML = `
+    <div class="d-flex">
+      <div class="toast-body">${msg}</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>`;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    try { toast.remove(); } catch(e){/*ignore*/ }
+  }, timeout);
+}
+
+/* ---------------------------
+   Add Plan (AJAX)
+   --------------------------- */
+document.getElementById('planForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const name = document.getElementById('planName').value.trim();
+    const duration = parseInt(document.getElementById('duration').value, 10);
+    const price = parseFloat(document.getElementById('price').value);
+
+    if (!name || !duration || isNaN(price)) {
+        showToast('Please fill all fields correctly.');
+        return;
+    }
+
+    fetch('/api/plans', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            PlanName: name,
+            DurationMonths: duration,
+            Price: price
+        })
+    }).then(r => r.json())
+      .then(resp => {
+        if (resp.success) {
+            showToast('Plan created!');
+            // reload to show the new plan
+            setTimeout(() => location.reload(), 600);
+        } else {
+            showToast('ERROR: ' + (resp.error || 'Failed to create plan'));
+        }
+        bootstrap.Modal.getInstance(document.getElementById('addPlanModal')).hide();
+      }).catch(err => {
+        console.error(err);
+        showToast('Network error while creating plan');
+      });
+});
+
+/* ---------------------------
+   Assign Plan modal open/populate
+   --------------------------- */
+function openAssignModalFor(button) {
+    const planId = button.getAttribute('data-plan-id');
+    document.getElementById('assignPlanID').value = planId;
+    document.getElementById('assignStartDate').value = new Date().toISOString().slice(0,10); // default today
+
+    // Populate members (expects /api/members -> [{MemberID, Name, Status}, ...])
+    fetch('/api/members')
+      .then(r => r.json())
+      .then(members => {
+        const sel = document.getElementById('assignMember');
+        sel.innerHTML = '';
+        if (!Array.isArray(members) || members.length === 0) {
+            sel.innerHTML = '<option value="">No members available</option>';
+        } else {
+            sel.innerHTML = '<option value="">Select member</option>';
+            members.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.MemberID;
+                opt.textContent = `${m.Name} ${m.Status ? '('+m.Status+')' : ''}`;
+                sel.appendChild(opt);
+            });
+        }
+      }).catch(err => {
+        console.error('Failed to load members', err);
+        document.getElementById('assignMember').innerHTML = '<option value="">Error loading members</option>';
+      });
+
+    // Populate specializations (expects /api/trainers -> [{TrainerID, Name, Specialization}, ...])
+    fetch('/api/trainers')
+      .then(r => r.json())
+      .then(trainers => {
+        const specs = Array.from(new Set((trainers || []).map(t => t.Specialization).filter(Boolean)));
+        const selSpec = document.getElementById('assignSpecialization');
+        selSpec.innerHTML = '';
+        if (specs.length === 0) {
+            selSpec.innerHTML = '<option value="">No specializations</option>';
+        } else {
+            selSpec.innerHTML = '<option value="">Select specialization</option>';
+            specs.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.textContent = s;
+                selSpec.appendChild(opt);
+            });
+        }
+      }).catch(err => {
+        console.error('Failed to load trainers', err);
+        document.getElementById('assignSpecialization').innerHTML = '<option value="">Error loading specializations</option>';
+      });
+
+    // Show modal
+    new bootstrap.Modal(document.getElementById('assignModal')).show();
+}
+
+/* Attach click handlers to all assign buttons (works for server-rendered cards) */
+document.querySelectorAll('.assign-plan-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        openAssignModalFor(btn);
+    });
+});
+
+/* ---------------------------
+   Assign Plan submission
+   --------------------------- */
+document.getElementById('assignForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const memberId = document.getElementById('assignMember').value;
+    const planId = document.getElementById('assignPlanID').value;
+    const startDate = document.getElementById('assignStartDate').value;
+    const spec = document.getElementById('assignSpecialization').value;
+
+    if (!memberId || !planId || !startDate) {
+        showToast('Please select member, plan and start date.');
+        return;
+    }
+
+    // payload keys must match backend: MemberID, PlanID, StartDate, PreferredSpecialization
+    const payload = {
+        MemberID: parseInt(memberId, 10),
+        PlanID: parseInt(planId, 10),
+        StartDate: startDate,
+        PreferredSpecialization: spec || null
+    };
+
+    fetch('/api/member-plans', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    }).then(r => r.json())
+      .then(resp => {
+        if (resp.success) {
+            showToast('Plan assigned! Trainer auto-assigned (if available).');
+            setTimeout(() => location.reload(), 700);
+        } else {
+            showToast('ERROR: ' + (resp.error || 'Failed to assign plan'));
+        }
+        bootstrap.Modal.getInstance(document.getElementById('assignModal')).hide();
+      }).catch(err => {
+        console.error('Assign request failed', err);
+        showToast('Network error while assigning plan');
+      });
+});
+</script>
+{% endblock %}

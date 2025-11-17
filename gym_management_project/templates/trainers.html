@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}Trainers - Gym Management{% endblock %}
+{% block content %}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-user-tie"></i> Trainers</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTrainerModal">
+            <i class="fas fa-plus"></i> Add Trainer
+        </button>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">All Trainers</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Specialization</th>
+                            <th>Phone</th>
+                            <th>Hire Date</th>
+                            <th>Total Sessions</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in trainers %}
+                        <tr>
+                            <td>{{ t.TrainerID }}</td>
+                            <td>{{ t.Name }}</td>
+                            <td>{{ t.Specialization }}</td>
+                            <td>{{ t.Phone }}</td>
+                            <td>{{ t.HireDate }}</td>
+                            <td>{{ t.SessionCount or 0 }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info"
+                                        onclick="viewSessions('{{ t.TrainerID }}','{{ t.Name }}')">
+                                    <i class="fas fa-calendar-alt"></i> View Sessions
+                                </button>
+
+                                <button class="btn btn-sm btn-outline-danger ms-1"
+                                        onclick="deleteTrainer('{{ t.TrainerID }}', '{{ t.Name }}')">
+                                    <i class="fas fa-user-slash"></i> Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Trainer Modal -->
+<div class="modal fade" id="addTrainerModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" id="trainerForm">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Trainer</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Name</label>
+          <input type="text" class="form-control" id="trainerName" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Specialization</label>
+          <input type="text" class="form-control" id="trainerSpecialization" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Phone</label>
+          <input type="text" class="form-control" id="trainerPhone" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Hire Date</label>
+          <input type="date" class="form-control" id="trainerHireDate" required>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-primary">Add Trainer</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Trainer Sessions Modal -->
+<div class="modal fade" id="viewSessionsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Sessions for <span id="trainerSessionName"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <table class="table" id="sessionTable">
+          <thead>
+            <tr>
+              <th>Session ID</th>
+              <th>Member</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let currentTrainerId = null;
+
+/* ----------------------------
+   View Sessions
+   ---------------------------- */
+function viewSessions(trainerId, trainerName) {
+    currentTrainerId = trainerId;
+    document.getElementById('trainerSessionName').textContent = trainerName;
+
+    new bootstrap.Modal(document.getElementById('viewSessionsModal')).show();
+
+    fetch(`/api/trainers/${trainerId}/sessions`)
+        .then(r => r.json())
+        .then(sessions => renderSessions(sessions))
+        .catch(err => {
+            console.error("Error:", err);
+            renderSessions([]);
+        });
+}
+
+/* ----------------------------
+   Render Sessions
+   ---------------------------- */
+function renderSessions(sessions) {
+    const tbody = document.querySelector("#sessionTable tbody");
+    tbody.innerHTML = "";
+
+    if (!sessions || sessions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center">No sessions scheduled for this trainer.</td></tr>`;
+        return;
+    }
+
+    sessions.forEach(s => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${s.SessionID}</td>
+            <td>${s.MemberName || "-"}</td>
+            <td>${s.ScheduledDate || "-"}</td>
+            <td>${s.ScheduledTime}</td>
+
+            <td>
+                <select class="form-select form-select-sm"
+                        onchange="changeSessionStatus(${s.SessionID}, this.value)">
+                    <option ${s.Status === 'Scheduled' ? 'selected' : ''}>Scheduled</option>
+                    <option ${s.Status === 'Ongoing' ? 'selected' : ''}>Ongoing</option>
+                    <option ${s.Status === 'Completed' ? 'selected' : ''}>Completed</option>
+                    <option ${s.Status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                </select>
+            </td>
+
+            <td>
+                <button class="btn btn-sm btn-outline-danger"
+                        onclick="deleteSession(${s.SessionID}, '${s.MemberName}')">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/* ----------------------------
+   Update Session Status
+   ---------------------------- */
+function changeSessionStatus(sessionId, status) {
+    fetch(`/api/sessions/${sessionId}`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ Status: status })
+    }).then(r => r.json())
+      .then(resp => {
+        if (resp.success) {
+            showToast("Session status updated!");
+            viewSessions(currentTrainerId, document.getElementById('trainerSessionName').textContent);
+        } else {
+            showToast("Error updating status!");
+        }
+    });
+}
+
+/* ----------------------------
+   Delete Session
+   ---------------------------- */
+function deleteSession(sessionId, memberName) {
+    if (!confirm(`Delete session for ${memberName}?`)) return;
+
+    fetch(`/api/sessions/${sessionId}`, { method: "DELETE" })
+        .then(r => r.json())
+        .then(resp => {
+            if (resp.success) {
+                showToast("Session deleted!");
+                viewSessions(currentTrainerId, document.getElementById('trainerSessionName').textContent);
+            } else {
+                showToast("Failed to delete session!");
+            }
+        });
+}
+
+/* ----------------------------
+   Delete Trainer
+   ---------------------------- */
+function deleteTrainer(trainerId, name) {
+    if (!confirm(`Delete trainer ${name}?`)) return;
+
+    fetch(`/api/trainers/${trainerId}`, { method: "DELETE" })
+        .then(r => r.json())
+        .then(resp => {
+            if (resp.success) {
+                showToast("Trainer deleted!");
+                location.reload();
+            } else {
+                showToast("Failed to delete trainer!");
+            }
+        });
+}
+
+/* ----------------------------
+   Add Trainer
+   ---------------------------- */
+document.getElementById('trainerForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const data = {
+        name: document.getElementById('trainerName').value,
+        specialization: document.getElementById('trainerSpecialization').value,
+        phone: document.getElementById('trainerPhone').value,
+        hireDate: document.getElementById('trainerHireDate').value,
+    };
+
+    fetch('/api/trainers', {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+    }).then(r => r.json())
+      .then(resp => {
+        if (resp.success) {
+            showToast("Trainer added!");
+            location.reload();
+        } else {
+            showToast("ERROR: " + (resp.error || "Unknown error"));
+        }
+      });
+});
+
+/* ----------------------------
+   Toast Helper
+   ---------------------------- */
+function showToast(msg) {
+    const toast = document.createElement("div");
+    toast.className = "toast align-items-center text-bg-primary border-0 show position-fixed bottom-0 end-0 m-3";
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${msg}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto"></button>
+        </div>`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+</script>
+
+{% endblock %}

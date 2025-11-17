@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+{% block title %}Members - Gym Management{% endblock %}
+{% block content %}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-users"></i> Members</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMemberModal">
+            <i class="fas fa-user-plus"></i> Add Member
+        </button>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="membersTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Status</th>
+                            <th>Trainer</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in members %}
+                        <tr>
+                            <td class="member-id">{{ m.MemberID }}</td>
+                            <td class="member-name">{{ m.Name }}</td>
+                            <td class="member-email">{{ m.Email or '-' }}</td>
+                            <td class="member-phone">{{ m.Phone or '-' }}</td>
+
+                            <td>
+                                <span class="badge {% if m.Status == 'Active' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ m.Status }}
+                                </span>
+                            </td>
+
+                            <td class="member-trainer">
+                                {% if m.TrainerName %}
+                                    {{ m.TrainerName }} <small class="text-muted">({{ m.Specialization }})</small>
+                                {% else %}
+                                    <span class="text-muted">Unassigned</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <!-- Action buttons use data attributes so JS delegates handlers -->
+                                <button class="btn btn-sm btn-outline-primary action-btn"
+                                        data-action="book-session"
+                                        data-member-id="{{ m.MemberID }}"
+                                        data-member-name="{{ m.Name | e }}">
+                                    <i class="fas fa-calendar-plus"></i>
+                                </button>
+
+                                <button class="btn btn-sm btn-outline-success action-btn"
+                                        data-action="assign-plan"
+                                        data-member-id="{{ m.MemberID }}"
+                                        data-member-name="{{ m.Name | e }}">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </button>
+
+                                {% if m.TrainerName %}
+                                <button class="btn btn-sm btn-outline-warning action-btn"
+                                        data-action="change-trainer"
+                                        data-member-id="{{ m.MemberID }}"
+                                        data-member-name="{{ m.Name | e }}"
+                                        data-current-trainer-id="{{ m.TrainerID }}">
+                                    <i class="fas fa-user-edit"></i>
+                                </button>
+
+                                <button class="btn btn-sm btn-outline-danger action-btn"
+                                        data-action="unassign-trainer"
+                                        data-member-id="{{ m.MemberID }}">
+                                    <i class="fas fa-user-slash"></i>
+                                </button>
+                                {% endif %}
+
+                                <button class="btn btn-sm btn-danger action-btn"
+                                        data-action="delete-member"
+                                        data-member-id="{{ m.MemberID }}"
+                                        data-member-name="{{ m.Name | e }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ============================ ADD MEMBER MODAL ============================ -->
+<div class="modal fade" id="addMemberModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" id="memberForm">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New Member</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <div class="mb-3">
+          <label class="form-label">Full Name</label>
+          <input type="text" class="form-control" id="name" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-control" id="email">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Phone</label>
+          <input type="text" class="form-control" id="phone">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Date of Birth</label>
+          <input type="date" class="form-control" id="dateOfBirth">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Join Date</label>
+          <input type="date" class="form-control" id="joinDate" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="status">
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="Pending">Pending</option>
+          </select>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-primary">Add Member</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<!-- ======================== ASSIGN TRAINER MODAL ======================== -->
+<div class="modal fade" id="assignTrainerModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" id="assignTrainerForm">
+      <div class="modal-header">
+        <h5 class="modal-title">Change Trainer for <span id="assignTrainerMemberName"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="assignTrainerMemberId">
+        <div class="mb-3">
+          <label class="form-label">Select Trainer</label>
+          <select class="form-select" id="assignTrainerTrainerId" required></select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-success" type="submit">Assign</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================= BOOK SESSION MODAL ======================== -->
+<div class="modal fade" id="bookSessionModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" id="bookSessionForm">
+      <div class="modal-header">
+        <h5 class="modal-title">Book Session for <span id="sessionMemberName"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="sessionMemberId">
+
+        <div class="mb-3">
+          <label class="form-label">Trainer</label>
+          <select class="form-select" id="sessionTrainerId" required></select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Date</label>
+          <input type="date" class="form-control" id="sessionScheduledDate" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Time</label>
+          <input type="time" class="form-control" id="sessionScheduledTime" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="sessionStatus">
+            <option>Scheduled</option>
+            <option>Ongoing</option>
+            <option>Completed</option>
+            <option>Cancelled</option>
+          </select>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-success" type="submit">Book</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ======================== ASSIGN PLAN MODAL ======================== -->
+<div class="modal fade" id="assignPlanModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" id="assignPlanForm">
+      <div class="modal-header">
+        <h5 class="modal-title">Assign Plan to <span id="assignPlanMemberName"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="assignPlanMemberId">
+
+        <div class="mb-3">
+          <label class="form-label">Plan</label>
+          <select class="form-select" id="assignPlanPlanId"></select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Preferred Specialization</label>
+          <input type="text" class="form-control" id="assignPlanSpecialization">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Start Date</label>
+          <input type="date" class="form-control" id="assignPlanStartDate" required>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-success" type="submit">Assign</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* small safe helper */
+function showToast(msg) {
+    if (typeof window.showToast === 'function') {
+        // use global one from base if present
+        window.showToast(msg);
+        return;
+    }
+    const t = document.createElement("div");
+    t.className = "toast text-bg-primary position-fixed bottom-0 end-0 m-3 show";
+    t.innerHTML = `<div class="d-flex">
+                        <div class="toast-body">${msg}</div>
+                        <button class="btn-close btn-close-white me-2 m-auto"></button>
+                   </div>`;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+
+/* Utility to fetch JSON safely */
+async function jsonFetch(url, opts) {
+    try {
+        const r = await fetch(url, opts);
+        const j = await r.json().catch(()=>({}));
+        return j;
+    } catch (err) {
+        console.error("Fetch error", err);
+        return null;
+    }
+}
+
+/* Event delegation for action buttons */
+document.addEventListener('click', async function(e) {
+    const btn = e.target.closest('.action-btn');
+    if (!btn) return;
+
+    const action = btn.dataset.action;
+    const memberId = btn.dataset.memberId;
+    const memberName = btn.dataset.memberName || '';
+    const currentTrainerId = btn.dataset.currentTrainerId;
+
+    if (action === 'book-session') {
+        openBookSessionModal(memberId, memberName);
+    } else if (action === 'assign-plan') {
+        openAssignPlanModal(memberId, memberName);
+    } else if (action === 'change-trainer') {
+        openAssignTrainerModal(memberId, memberName, currentTrainerId);
+    } else if (action === 'unassign-trainer') {
+        if (!confirm("Unassign this member from their trainer?")) return;
+        const resp = await jsonFetch(`/api/members/${memberId}/trainer`, { method: 'DELETE' });
+        if (resp && resp.success) {
+            showToast("Trainer unassigned!");
+            location.reload();
+        } else {
+            showToast("Failed to unassign");
+        }
+    } else if (action === 'delete-member') {
+        if (!confirm(`Remove member ${memberName}?`)) return;
+        const resp = await jsonFetch(`/api/members/${memberId}`, { method: 'DELETE' });
+        if (resp && resp.success) {
+            showToast("Member deleted!");
+            location.reload();
+        } else {
+            showToast("Failed to delete member");
+        }
+    }
+});
+
+/* ------------------ Add member ------------------ */
+(function attachMemberForm() {
+    const form = document.getElementById('memberForm');
+    if (!form) return;
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const payload = {
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value,
+            dateOfBirth: document.getElementById('dateOfBirth').value,
+            joinDate: document.getElementById('joinDate').value,
+            status: document.getElementById('status').value
+        };
+        const resp = await jsonFetch('/api/members', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if (resp && resp.success) {
+            showToast('Member added!');
+            location.reload();
+        } else {
+            showToast('Failed to add member: ' + (resp && resp.error ? resp.error : 'unknown'));
+        }
+    });
+})();
+
+/* ------------------ Assign trainer ------------------ */
+async function openAssignTrainerModal(memberId, memberName, currentTrainerId) {
+    const modalEl = document.getElementById("assignTrainerModal");
+    if (!modalEl) return;
+    document.getElementById("assignTrainerMemberId").value = memberId;
+    document.getElementById("assignTrainerMemberName").textContent = memberName || '';
+
+    const sel = document.getElementById("assignTrainerTrainerId");
+    sel.innerHTML = '<option>Loading...</option>';
+
+    const trainers = await jsonFetch('/api/trainers');
+    sel.innerHTML = '';
+    if (Array.isArray(trainers)) {
+        trainers.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.TrainerID;
+            opt.textContent = `${t.Name} (${t.Specialization})`;
+            if (String(t.TrainerID) === String(currentTrainerId)) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    } else {
+        sel.innerHTML = '<option value="">(no trainers)</option>';
+    }
+
+    const bs = new bootstrap.Modal(modalEl);
+    bs.show();
+}
+
+/* assign trainer form submission */
+(function attachAssignTrainerForm() {
+    const form = document.getElementById("assignTrainerForm");
+    if (!form) return;
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const memberId = document.getElementById("assignTrainerMemberId").value;
+        const trainerId = document.getElementById("assignTrainerTrainerId").value;
+        const resp = await jsonFetch(`/api/members/${memberId}/trainer`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ TrainerID: trainerId })
+        });
+        if (resp && resp.success) {
+            showToast("Trainer updated!");
+            location.reload();
+        } else {
+            showToast("Error updating trainer");
+        }
+    });
+})();
+
+/* ------------------ Book session ------------------ */
+async function openBookSessionModal(memberId, memberName) {
+    const modalEl = document.getElementById('bookSessionModal');
+    if (!modalEl) return;
+    document.getElementById('sessionMemberId').value = memberId;
+    document.getElementById('sessionMemberName').textContent = memberName || '';
+
+    const sel = document.getElementById('sessionTrainerId');
+    sel.innerHTML = '<option>Loading...</option>';
+    const trainers = await jsonFetch('/api/trainers');
+    sel.innerHTML = '';
+    if (Array.isArray(trainers)) {
+        trainers.forEach(t => {
+            sel.innerHTML += `<option value="${t.TrainerID}">${t.Name} (${t.Specialization})</option>`;
+        });
+    } else {
+        sel.innerHTML = '<option value="">(no trainers)</option>';
+    }
+
+    new bootstrap.Modal(modalEl).show();
+}
+
+(function attachBookSessionForm() {
+    const form = document.getElementById('bookSessionForm');
+    if (!form) return;
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const data = {
+            TrainerID: document.getElementById('sessionTrainerId').value,
+            MemberID: document.getElementById('sessionMemberId').value,
+            ScheduledDate: document.getElementById('sessionScheduledDate').value,
+            ScheduledTime: document.getElementById('sessionScheduledTime').value,
+            Status: document.getElementById('sessionStatus').value
+        };
+        const resp = await jsonFetch('/api/sessions', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(data)
+        });
+        if (resp && resp.success) {
+            showToast('Session booked!');
+            location.reload();
+        } else {
+            showToast('ERROR booking session: ' + (resp && resp.error ? resp.error : 'unknown'));
+        }
+    });
+})();
+
+/* ------------------ Assign plan ------------------ */
+async function openAssignPlanModal(memberId, memberName) {
+    const modalEl = document.getElementById('assignPlanModal');
+    if (!modalEl) return;
+    document.getElementById('assignPlanMemberId').value = memberId;
+    document.getElementById('assignPlanMemberName').textContent = memberName || '';
+    document.getElementById('assignPlanStartDate').value = new Date().toISOString().slice(0,10);
+
+    const sel = document.getElementById('assignPlanPlanId');
+    sel.innerHTML = '<option>Loading...</option>';
+    const plans = await jsonFetch('/api/plans');
+    sel.innerHTML = '';
+    if (Array.isArray(plans)) {
+        plans.forEach(p => {
+            sel.innerHTML += `<option value="${p.PlanID}">${p.PlanName} (${p.DurationMonths} months)</option>`;
+        });
+    } else {
+        sel.innerHTML = '<option value="">(no plans)</option>';
+    }
+
+    new bootstrap.Modal(modalEl).show();
+}
+
+(function attachAssignPlanForm() {
+    const form = document.getElementById('assignPlanForm');
+    if (!form) return;
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const payload = {
+            MemberID: document.getElementById("assignPlanMemberId").value,
+            PlanID: document.getElementById("assignPlanPlanId").value,
+            StartDate: document.getElementById("assignPlanStartDate").value,
+            PreferredSpecialization: document.getElementById("assignPlanSpecialization").value
+        };
+        const resp = await jsonFetch('/api/member-plans', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if (resp && resp.success) {
+            showToast("Plan assigned!");
+            location.reload();
+        } else {
+            showToast("Failed to assign plan: " + (resp && resp.error ? resp.error : 'unknown'));
+        }
+    });
+})();
+</script>
+{% endblock %}

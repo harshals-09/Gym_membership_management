@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Member Dashboard{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Member Dashboard</h2>
+    <div>
+      <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary">Logout</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <p>Welcome, {{ session.username }}.</p>
+      <p>Quick links:</p>
+      <ul>
+        <li><a href="{{ url_for('progress_page') }}">My Progress</a></li>
+        <li><a href="{{ url_for('payments_page') }}">Payments</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
